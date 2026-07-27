@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GIF Meme Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+<style>
+
+:root{
+  --bg:#14161b;
+  --bg-alt:#0e0f13;
+  --panel:#1c1f26;
+  --panel-alt:#23262f;
+  --panel-border:#2e323c;
+  --text:#eae7e0;
+  --text-dim:#9a9ba3;
+  --text-faint:#6b6d78;
+  --accent:#ffc857;
+  --accent-ink:#3a2c05;
+  --accent-dim:#8a7038;
+  --accent2:#5eead4;
+  --accent2-dim:#2c7267;
+  --danger:#ff6b6b;
+  --danger-dim:#7a2f2f;
+  --radius:12px;
+  --radius-sm:7px;
+  --shadow: 0 12px 32px rgba(0,0,0,.4);
+  --mono:'JetBrains Mono', monospace;
+  --sans:'Inter', sans-serif;
+  --display:'Space Grotesk', sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;}
+input,select,button{color-scheme:dark;}
+::selection{background:var(--accent);color:var(--accent-ink);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#33363f;border-radius:10px;}
+::-webkit-scrollbar-thumb:hover{background:#3f434f;}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;}
+
+.film-edge{
+  height:12px;
+  flex-shrink:0;
+  background:
+    radial-gradient(circle at 8px 6px, var(--bg) 3px, transparent 3.4px) 0 0/16px 12px repeat-x,
+    var(--panel-border);
+}
+
+
+.app{height:100vh;display:flex;flex-direction:column;}
+
+.topbar{
+  display:flex;align-items:center;gap:16px;
+  padding:10px 18px;
+  background:var(--bg-alt);
+  border-bottom:1px solid var(--panel-border);
+  flex-shrink:0;
+}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand-mark{
+  width:26px;height:26px;border-radius:7px;
+  background:linear-gradient(145deg, var(--accent), #c98f2c);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-weight:700;color:var(--accent-ink);font-size:14px;
+}
+.brand-name{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.2px;}
+.brand-tag{font-size:11px;color:var(--text-faint);font-family:var(--mono);margin-left:2px;padding-top:2px;}
+.topbar-spacer{flex:1;}
+.file-chip{
+  display:flex;align-items:center;gap:10px;
+  background:var(--panel);border:1px solid var(--panel-border);
+  padding:6px 12px;border-radius:999px;font-size:12.5px;color:var(--text-dim);
+}
+.file-chip strong{color:var(--text);font-weight:500;}
+.file-chip .dot{width:3px;height:3px;border-radius:50%;background:var(--text-faint);}
+.btn-export{
+  display:flex;align-items:center;gap:8px;
+  background:var(--accent);color:var(--accent-ink);border:none;
+  font-weight:600;font-size:13.5px;padding:9px 18px;border-radius:9px;cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.btn-export:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(255,200,87,.25);}
+.btn-export:disabled{opacity:.4;cursor:not-allowed;}
+
+.workspace{flex:1;display:flex;min-height:0;}
+.canvas-area{flex:1;display:flex;flex-direction:column;min-width:0;padding:18px;gap:14px;}
+.sidebar{
+  width:340px;flex-shrink:0;
+  background:var(--bg-alt);
+  border-left:1px solid var(--panel-border);
+  display:flex;flex-direction:column;min-height:0;
+}
+
+.preview-shell{
+  flex:1;min-height:0;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow);
+}
+.preview-wrap{
+  position:relative;flex:1;min-height:0;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    repeating-conic-gradient(#20232b 0% 25%, #1a1c22 0% 50%) 50%/18px 18px;
+  overflow:hidden;
+}
+#video{max-width:100%;max-height:100%;display:block;}
+.no-video #video{display:none;}
+.text-layer-container{
+  position:absolute;inset:0;pointer-events:none;
+}
+.text-layer-container.active-layers *{pointer-events:auto;}
+
+
+.dropzone{
+  position:absolute;inset:16px;border-radius:14px;
+  border:2px dashed var(--panel-border);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  color:var(--text-dim);text-align:center;padding:20px;
+  transition:border-color .15s ease, background .15s ease;
+  background:rgba(20,22,27,.4);
+}
+.no-video .dropzone{display:flex;}
+.dropzone.drag-over{border-color:var(--accent);background:rgba(255,200,87,.06);color:var(--text);}
+.dropzone-icon{
+  width:56px;height:56px;border-radius:14px;background:var(--panel-alt);
+  border:1px solid var(--panel-border);
+  display:flex;align-items:center;justify-content:center;
+}
+.dropzone h3{margin:0;font-family:var(--display);font-size:17px;font-weight:600;color:var(--text);}
+.dropzone p{margin:0;font-size:12.5px;color:var(--text-faint);max-width:280px;}
+.browse-btn{
+  background:var(--accent);color:var(--accent-ink);border:none;font-weight:600;
+  font-size:13px;padding:9px 20px;border-radius:8px;cursor:pointer;margin-top:2px;
+}
+.browse-btn:hover{filter:brightness(1.06);}
+.dropzone-formats{font-size:10.5px;color:var(--text-faint);font-family:var(--mono);letter-spacing:.3px;}
+
+
+.preview-toolbar{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 14px;border-top:1px solid var(--panel-border);
+  background:var(--panel-alt);
+}
+.icon-btn{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--panel-border);
+  background:var(--panel);color:var(--text);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;
+}
+.icon-btn:hover{background:#2a2d36;}
+.icon-btn.active{background:var(--accent2-dim);border-color:var(--accent2);color:#e9fffb;}
+.time-readout{font-family:var(--mono);font-size:12.5px;color:var(--text-dim);white-space:nowrap;}
+.time-readout b{color:var(--text);font-weight:500;}
+.preview-toolbar-spacer{flex:1;}
+.loop-toggle{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim);cursor:pointer;user-select:none;
+}
+.loop-toggle input{accent-color:var(--accent2);}
+
+.timeline-panel{
+  background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+  overflow:hidden;flex-shrink:0;box-shadow:var(--shadow);
+}
+.timeline-head{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;
+  border-bottom:1px solid var(--panel-border);background:var(--panel-alt);
+}
+.timeline-title{font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;}
+.timeline-head-spacer{flex:1;}
+.zoom-control{display:flex;align-items:center;gap:8px;}
+.zoom-control span{font-size:11px;color:var(--text-faint);font-family:var(--mono);}
+.zoom-control input[type=range]{width:90px;}
+
+.timeline-scroll{
+  overflow-x:auto;overflow-y:hidden;padding:12px 14px 14px;
+  background:var(--bg-alt);
+}
+.timeline-track{
+  position:relative;height:56px;min-width:100%;border-radius:6px;overflow:hidden;
+  background:#101217;cursor:pointer;
+}
+.thumb-strip{position:absolute;inset:0;display:flex;}
+.thumb-strip img{height:100%;width:auto;flex-shrink:0;object-fit:cover;filter:saturate(.85);}
+.trim-shade{position:absolute;top:0;bottom:0;background:rgba(10,11,14,.72);}
+.trim-shade.left{left:0;}
+.trim-shade.right{right:0;}
+.trim-range{
+  position:absolute;top:0;bottom:0;
+  border-left:2px solid var(--accent);border-right:2px solid var(--accent);
+  background:rgba(255,200,87,.10);
+}
+.trim-handle{
+  position:absolute;top:0;bottom:0;width:12px;margin-left:-6px;cursor:ew-resize;
+  display:flex;align-items:center;justify-content:center;z-index:3;
+}
+.trim-handle::after{
+  content:'';width:6px;height:26px;border-radius:3px;background:var(--accent);
+  box-shadow:0 0 0 1px rgba(0,0,0,.3);
+}
+.trim-handle:hover::after, .trim-handle.dragging::after{background:#ffd987;}
+.playhead{
+  position:absolute;top:0;bottom:0;width:2px;background:var(--accent2);z-index:4;pointer-events:none;
+  box-shadow:0 0 8px rgba(94,234,212,.6);
+}
+.playhead::before{
+  content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+  width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:6px solid var(--accent2);
+}
+.timeline-empty{
+  display:flex;align-items:center;justify-content:center;height:56px;color:var(--text-faint);
+  font-size:12px;font-family:var(--mono);
+}
+
+.trim-readout-row{
+  display:flex;align-items:center;gap:18px;padding:0 14px 12px;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);
+}
+.trim-readout-row .seg{display:flex;align-items:center;gap:6px;}
+.trim-readout-row .seg .sw{width:8px;height:8px;border-radius:2px;background:var(--accent);}
+.trim-readout-row .dur{color:var(--accent2);}
+
+
+.tabs{display:flex;border-bottom:1px solid var(--panel-border);flex-shrink:0;}
+.tab-btn{
+  flex:1;padding:13px 8px;background:none;border:none;color:var(--text-faint);
+  font-size:12.5px;font-weight:600;letter-spacing:.3px;cursor:pointer;
+  border-bottom:2px solid transparent;transition:color .12s ease;
+}
+.tab-btn:hover{color:var(--text-dim);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+.tab-panels{flex:1;min-height:0;overflow-y:auto;}
+.tab-panel{display:none;padding:18px;}
+.tab-panel.active{display:block;}
+
+.field-group{margin-bottom:20px;}
+.field-group:last-child{margin-bottom:4px;}
+.field-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.field-label{font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;}
+.field-value{font-family:var(--mono);font-size:12px;color:var(--accent);}
+
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--panel-border);outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);
+  border:2px solid #1c1f26;cursor:pointer;margin-top:-6px;
+}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #1c1f26;cursor:pointer;}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--panel-border);}
+
+.input-row{display:flex;gap:8px;}
+.text-input, .num-input, .select-input{
+  width:100%;background:var(--panel);border:1px solid var(--panel-border);color:var(--text);
+  padding:8px 10px;border-radius:7px;font-size:13px;font-family:var(--sans);
+}
+.num-input{font-family:var(--mono);}
+.text-input:focus,.num-input:focus,.select-input:focus{border-color:var(--accent2);}
+.select-input{appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239a9ba3'/></svg>");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:26px;}
+
+.speed-toggle{display:flex;gap:6px;}
+.speed-toggle button{
+  flex:1;padding:8px 4px;background:var(--panel);border:1px solid var(--panel-border);color:var(--text-dim);
+  border-radius:7px;font-size:12px;font-family:var(--mono);cursor:pointer;
+}
+.speed-toggle button.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+
+.quality-toggle{display:flex;gap:6px;}
+.quality-toggle button{
+  flex:1;padding:8px 4px;background:var(--panel);border:1px solid var(--panel-border);color:var(--text-dim);
+  border-radius:7px;font-size:12px;cursor:pointer;
+}
+.quality-toggle button.active{background:var(--accent2-dim);border-color:var(--accent2);color:#e9fffb;}
+
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);cursor:pointer;user-select:none;}
+.checkbox-row input{accent-color:var(--accent);}
+
+hr.divider{border:none;border-top:1px solid var(--panel-border);margin:18px 0;}
+
+
+.add-text-btn{
+  width:100%;padding:11px;background:var(--accent);color:var(--accent-ink);border:none;
+  border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.add-text-btn:hover{filter:brightness(1.05);}
+.empty-hint{font-size:12px;color:var(--text-faint);text-align:center;padding:18px 8px;line-height:1.5;}
+.layer-row{
+  display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--panel-border);
+  border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:pointer;
+}
+.layer-row.selected{border-color:var(--accent2);background:#1e2530;}
+.layer-row .swatch{width:8px;height:26px;border-radius:2px;background:var(--accent);flex-shrink:0;}
+.layer-row .lbl{flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.layer-row .mini-btn{
+  width:24px;height:24px;border-radius:6px;border:none;background:transparent;color:var(--text-faint);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.layer-row .mini-btn:hover{background:var(--panel-alt);color:var(--text);}
+
+.bold-toggle{
+  display:flex;align-items:center;justify-content:center;width:100%;padding:8px;
+  background:var(--panel);border:1px solid var(--panel-border);border-radius:7px;color:var(--text-dim);
+  font-weight:700;cursor:pointer;font-size:13px;
+}
+.bold-toggle.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.color-swatches{display:flex;gap:7px;flex-wrap:wrap;}
+.color-dot{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;}
+.color-dot.selected{border-color:var(--accent2);}
+
+.text-layer{
+  position:absolute;
+  padding:4px 8px;
+  color:#fff;
+  font-family:'Inter',sans-serif;
+  white-space:pre-wrap;
+  word-break:break-word;
+  cursor:move;
+  border:1.5px solid transparent;
+  user-select:none;
+  line-height:1.15;
+  text-shadow:0 2px 6px rgba(0,0,0,.55), 0 0 2px rgba(0,0,0,.4);
+}
+.text-layer.selected{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(94,234,212,.15);}
+.text-layer .handle{
+  position:absolute;width:12px;height:12px;background:var(--accent2);border-radius:50%;
+  border:2px solid #0e0f13;display:none;
+}
+.text-layer.selected .handle{display:block;}
+.handle.resize{right:-7px;bottom:-7px;cursor:nwse-resize;}
+.handle.rotate{left:50%;top:-26px;margin-left:-7px;cursor:grab;background:var(--accent);}
+.handle.rotate::before{
+  content:'';position:absolute;left:50%;top:100%;width:1px;height:14px;background:var(--accent);transform:translateX(-50%);
+}
+
+.modal-veil{
+  position:fixed;inset:0;background:rgba(8,9,11,.72);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:50;
+}
+.modal-veil.show{display:flex;}
+.modal-card{
+  width:400px;background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;
+  padding:28px;box-shadow:var(--shadow);text-align:center;
+}
+.modal-card h3{margin:0 0 6px;font-family:var(--display);font-size:18px;}
+.modal-card p{margin:0 0 20px;color:var(--text-dim);font-size:12.5px;}
+.progress-track{height:8px;border-radius:5px;background:var(--panel-alt);overflow:hidden;margin-bottom:10px;}
+.progress-fill{height:100%;width:0%;background:linear-gradient(90deg, var(--accent-dim), var(--accent));border-radius:5px;transition:width .15s ease;}
+.progress-pct{font-family:var(--mono);color:var(--accent);font-size:22px;font-weight:600;}
+.progress-stage{font-size:11.5px;color:var(--text-faint);margin-top:4px;font-family:var(--mono);}
+
+.result-card{width:460px;}
+.result-preview{
+  border-radius:10px;overflow:hidden;border:1px solid var(--panel-border);margin-bottom:16px;
+  background:repeating-conic-gradient(#20232b 0% 25%, #1a1c22 0% 50%) 50%/16px 16px;
+  max-height:320px;display:flex;align-items:center;justify-content:center;
+}
+.result-preview img{max-width:100%;max-height:320px;display:block;}
+.result-meta{display:flex;justify-content:center;gap:16px;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);margin-bottom:18px;}
+.result-actions{display:flex;gap:10px;}
+.btn-primary, .btn-secondary{
+  flex:1;padding:11px;border-radius:9px;font-weight:600;font-size:13px;cursor:pointer;border:none;
+}
+.btn-primary{background:var(--accent);color:var(--accent-ink);}
+.btn-primary:hover{filter:brightness(1.05);}
+.btn-secondary{background:var(--panel-alt);color:var(--text);border:1px solid var(--panel-border);}
+.btn-secondary:hover{background:#2a2d36;}
+
+
+.rendering .workspace{pointer-events:none;opacity:.55;filter:saturate(.6);}
+
+
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--panel);border:1px solid var(--panel-border);color:var(--text);
+  padding:11px 18px;border-radius:9px;font-size:12.5px;box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;transition:all .25s ease;z-index:60;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.error{border-color:var(--danger);color:#ffd6d6;}
+
+.hidden{display:none !important;}
+
+@media (max-width: 980px){
+  .sidebar{width:300px;}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">YC</div>
+      <div class="brand-name">Yehuda's</div>
+      <div class="brand-tag">Gif Maker</div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="file-chip hidden" id="fileChip">
+      <span id="chipName">—</span><span class="dot"></span><span id="chipSize">—</span><span class="dot"></span><span id="chipDuration">—</span>
+    </div>
+    <button class="btn-export" id="exportBtn" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Generate GIF
+    </button>
+  </header>
+
+
+  <div class="workspace">
+    <section class="canvas-area">
+
+      <div class="preview-shell no-video" id="previewShell">
+        <div class="film-edge"></div>
+        <div class="preview-wrap" id="previewWrap">
+          <video id="video" playsinline muted></video>
+          <div class="text-layer-container" id="textLayerContainer"></div>
+
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" stroke="#ffc857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3>Drop a video to get started</h3>
+            <p>Drag and drop a clip here, or browse your files. We'll turn it into a shareable loop.</p>
+            <button class="browse-btn" id="browseBtn">Browse files</button>
+            <input type="file" id="fileInput" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" class="hidden">
+            <div class="dropzone-formats">MP4 · WEBM · MOV</div>
+          </div>
+        </div>
+        <div class="film-edge"></div>
+
+        <div class="preview-toolbar">
+          <button class="icon-btn" id="playBtn" title="Play/Pause">
+            <svg id="playIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="time-readout"><b id="curTime">0:00.00</b> / <span id="totalTime">0:00.00</span></div>
+          <div class="preview-toolbar-spacer"></div>
+          <label class="loop-toggle"><input type="checkbox" id="loopToggle" checked> Loop trim range</label>
+        </div>
+      </div>
+
+      <div class="timeline-panel">
+        <div class="timeline-head">
+          <span class="timeline-title">Timeline</span>
+          <div class="timeline-head-spacer"></div>
+          <div class="zoom-control">
+            <span>Zoom</span>
+            <input type="range" id="zoomRange" min="1" max="4" step="0.1" value="1">
+          </div>
+        </div>
+        <div class="timeline-scroll" id="timelineScroll">
+          <div class="timeline-track" id="timelineTrack">
+            <div class="timeline-empty" id="timelineEmpty">Upload a video to see its timeline</div>
+            <div class="thumb-strip" id="thumbStrip"></div>
+            <div class="trim-shade left" id="shadeLeft"></div>
+            <div class="trim-shade right" id="shadeRight"></div>
+            <div class="trim-range" id="trimRangeEl"></div>
+            <div class="trim-handle" id="handleStart"></div>
+            <div class="trim-handle" id="handleEnd"></div>
+            <div class="playhead" id="playhead"></div>
+          </div>
+        </div>
+        <div class="trim-readout-row">
+          <div class="seg"><span class="sw"></span>Trim <span id="trimStartLbl">0:00.00</span> — <span id="trimEndLbl">0:00.00</span></div>
+          <div class="seg">Selected duration <span class="dur" id="trimDurLbl">0.00s</span></div>
+        </div>
+      </div>
+
+    </section>
+
+
+    <aside class="sidebar">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="trim">Trim &amp; GIF</button>
+        <button class="tab-btn" data-tab="text">Text</button>
+        <button class="tab-btn" data-tab="filters">Filters</button>
+      </div>
+
+      <div class="tab-panels">
+
+        <div class="tab-panel active" id="panel-trim">
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Start time</span><span class="field-value" id="startVal">0.00s</span></div>
+            <input type="range" id="startSlider" min="0" max="1" step="0.01" value="0">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">End time</span><span class="field-value" id="endVal">0.00s</span></div>
+            <input type="range" id="endSlider" min="0" max="1" step="0.01" value="1">
+          </div>
+
+          <hr class="divider">
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">FPS</span><span class="field-value" id="fpsVal">15</span></div>
+            <input type="range" id="fpsSlider" min="10" max="30" step="1" value="15">
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Dimensions</span></div>
+            <div class="input-row">
+              <input type="number" class="num-input" id="widthInput" placeholder="W" min="16" max="1280">
+              <input type="number" class="num-input" id="heightInput" placeholder="H" min="16" max="1280">
+            </div>
+            <label class="checkbox-row" style="margin-top:8px;">
+              <input type="checkbox" id="lockAspect" checked> Lock aspect ratio
+            </label>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Quality</span></div>
+            <div class="quality-toggle" id="qualityToggle">
+              <button data-q="20">Low</button>
+              <button data-q="10" class="active">Medium</button>
+              <button data-q="1">High</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">GIF duration</span><span class="field-value" id="gifDurVal">0.00s</span></div>
+            <input type="number" class="num-input" id="gifDurInput" step="0.1" min="0.2">
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Playback speed</span></div>
+            <div class="speed-toggle" id="speedToggle">
+              <button data-s="0.5">0.5x</button>
+              <button data-s="1" class="active">1x</button>
+              <button data-s="1.5">1.5x</button>
+              <button data-s="2">2x</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Estimated size</span><span class="field-value" id="estOut">—</span></div>
+          </div>
+        </div>
+
+        <!-- TEXT -->
+        <div class="tab-panel" id="panel-text">
+          <button class="add-text-btn" id="addTextBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+            Add text layer
+          </button>
+
+          <div id="layerListWrap" style="margin-top:16px;">
+            <div class="empty-hint" id="layerEmptyHint">No text layers yet. Add one and drag it right onto the preview — it'll be baked into your GIF.</div>
+            <div id="layerList"></div>
+          </div>
+
+          <div id="textEditFields" class="hidden">
+            <hr class="divider">
+            <div class="field-group">
+              <div class="field-label-row"><span class="field-label">Content</span></div>
+              <textarea class="text-input" id="textContentInput" rows="2" style="resize:vertical;"></textarea>
+            </div>
+            <div class="field-group">
+              <div class="field-label-row"><span class="field-label">Font family</span></div>
+              <select class="select-input" id="fontFamilySelect">
+                <option value="Inter, sans-serif">Inter</option>
+                <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
+                <option value="Impact, 'Arial Narrow Bold', sans-serif">Impact (classic meme)</option>
+                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="'Comic Sans MS', cursive">Comic Sans</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <div class="field-label-row"><span class="field-label">Font size</span><span class="field-value" id="fontSizeVal">32px</span></div>
+              <input type="range" id="fontSizeSlider" min="10" max="120" step="1" value="32">
+            </div>
+            <div class="field-group">
+              <div class="field-label-row"><span class="field-label">Style</span></div>
+              <div class="bold-toggle" id="boldToggle">B  Bold</div>
+            </div>
+            <div class="field-group">
+              <div class="field-label-row"><span class="field-label">Color</span></div>
+              <div class="color-swatches" id="colorSwatches"></div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="tab-panel" id="panel-filters">
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Brightness</span><span class="field-value" id="fx-brightness-val">100%</span></div>
+            <input type="range" class="fx-slider" id="fx-brightness" min="0" max="200" value="100">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Contrast</span><span class="field-value" id="fx-contrast-val">100%</span></div>
+            <input type="range" class="fx-slider" id="fx-contrast" min="0" max="200" value="100">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Saturation</span><span class="field-value" id="fx-saturate-val">100%</span></div>
+            <input type="range" class="fx-slider" id="fx-saturate" min="0" max="200" value="100">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Hue rotate</span><span class="field-value" id="fx-hue-rotate-val">0°</span></div>
+            <input type="range" class="fx-slider" id="fx-hue-rotate" min="0" max="360" value="0">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Blur</span><span class="field-value" id="fx-blur-val">0px</span></div>
+            <input type="range" class="fx-slider" id="fx-blur" min="0" max="10" step="0.1" value="0">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Grayscale</span><span class="field-value" id="fx-grayscale-val">0%</span></div>
+            <input type="range" class="fx-slider" id="fx-grayscale" min="0" max="100" value="0">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Sepia</span><span class="field-value" id="fx-sepia-val">0%</span></div>
+            <input type="range" class="fx-slider" id="fx-sepia" min="0" max="100" value="0">
+          </div>
+          <div class="field-group">
+            <div class="field-label-row"><span class="field-label">Invert</span><span class="field-value" id="fx-invert-val">0%</span></div>
+            <input type="range" class="fx-slider" id="fx-invert" min="0" max="100" value="0">
+          </div>
+          <button class="btn-secondary" id="resetFiltersBtn" style="width:100%;">Reset filters</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+
+<div class="modal-veil" id="exportVeil">
+  <div class="modal-card">
+    <h3>I am generating your GIF</h3>
+    <p id="exportSub">Capturing frames from the trimmed range…</p>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-pct" id="progressPct">0%</div>
+    <div class="progress-stage" id="progressStage">frame 0 / 0</div>
+  </div>
+</div>
+
+
+<div class="modal-veil" id="resultVeil">
+  <div class="modal-card result-card">
+    <h3>Your GIF is ready</h3>
+    <p>Preview it below, then download or keep editing.</p>
+    <div class="result-preview"><img id="resultImg" alt="Generated GIF preview"></div>
+    <div class="result-meta"><span id="resultSize">—</span><span id="resultDims">—</span><span id="resultFrames">—</span></div>
+    <div class="result-actions">
+      <button class="btn-secondary" id="resultCloseBtn">Keep editing</button>
+      <a class="btn-primary" id="resultDownloadBtn" download="loopsmith.gif" style="text-decoration:none;text-align:center;">Download GIF</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+
+const state = {
+  file:null,
+  duration:0,
+  startTime:0,
+  endTime:0,
+  fps:15,
+  outWidth:480,
+  outHeight:270,
+  nativeAspect:16/9,
+  quality:10,
+  gifDuration:0,
+  speed:1,
+  loop:true,
+  filters:{brightness:100,contrast:100,saturate:100,'hue-rotate':0,blur:0,grayscale:0,sepia:0,invert:0},
+  textLayers:[],
+  selectedLayerId:null,
+  layerCounter:0,
+  gifDurManuallySet:false,
+};
+
+
+const $ = (id)=>document.getElementById(id);
+const video = $('video');
+const previewShell = $('previewShell');
+const previewWrap = $('previewWrap');
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+const browseBtn = $('browseBtn');
+const fileChip = $('fileChip');
+const chipName = $('chipName'), chipSize=$('chipSize'), chipDuration=$('chipDuration');
+const exportBtn = $('exportBtn');
+const playBtn = $('playBtn'), playIcon=$('playIcon');
+const curTimeEl = $('curTime'), totalTimeEl=$('totalTime');
+const loopToggle = $('loopToggle');
+
+const timelineTrack = $('timelineTrack');
+const timelineEmpty = $('timelineEmpty');
+const thumbStrip = $('thumbStrip');
+const shadeLeft=$('shadeLeft'), shadeRight=$('shadeRight'), trimRangeEl=$('trimRangeEl');
+const handleStart=$('handleStart'), handleEnd=$('handleEnd');
+const playhead=$('playhead');
+const zoomRange = $('zoomRange');
+const trimStartLbl=$('trimStartLbl'), trimEndLbl=$('trimEndLbl'), trimDurLbl=$('trimDurLbl');
+
+const startSlider=$('startSlider'), endSlider=$('endSlider');
+const startVal=$('startVal'), endVal=$('endVal');
+const fpsSlider=$('fpsSlider'), fpsVal=$('fpsVal');
+const widthInput=$('widthInput'), heightInput=$('heightInput'), lockAspect=$('lockAspect');
+const qualityToggle=$('qualityToggle');
+const gifDurInput=$('gifDurInput'), gifDurVal=$('gifDurVal');
+const speedToggle=$('speedToggle');
+const estOut=$('estOut');
+
+const textLayerContainer=$('textLayerContainer');
+const addTextBtn=$('addTextBtn');
+const layerList=$('layerList');
+const layerEmptyHint=$('layerEmptyHint');
+const textEditFields=$('textEditFields');
+const textContentInput=$('textContentInput');
+const fontFamilySelect=$('fontFamilySelect');
+const fontSizeSlider=$('fontSizeSlider'), fontSizeVal=$('fontSizeVal');
+const boldToggle=$('boldToggle');
+const colorSwatches=$('colorSwatches');
+
+const exportVeil=$('exportVeil'), progressFill=$('progressFill'), progressPct=$('progressPct'), progressStage=$('progressStage'), exportSub=$('exportSub');
+const resultVeil=$('resultVeil'), resultImg=$('resultImg'), resultSize=$('resultSize'), resultDims=$('resultDims'), resultFrames=$('resultFrames');
+const resultCloseBtn=$('resultCloseBtn'), resultDownloadBtn=$('resultDownloadBtn');
+const toast = $('toast');
+
+
+function fmtTime(t){
+  if(!isFinite(t)) t=0;
+  const m = Math.floor(t/60);
+  const s = (t-m*60).toFixed(2).padStart(5,'0');
+  return m+':'+s;
+}
+function fmtBytes(b){
+  if(b<1024) return b+' B';
+  if(b<1024*1024) return (b/1024).toFixed(1)+' KB';
+  return (b/1024/1024).toFixed(2)+' MB';
+}
+function showToast(msg, isError){
+  toast.textContent = msg;
+  toast.classList.toggle('error', !!isError);
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>toast.classList.remove('show'), 2600);
+}
+function clamp(v,min,max){return Math.min(max, Math.max(min, v));}
+
+
+function initUpload(){
+  browseBtn.addEventListener('click', ()=>fileInput.click());
+  fileInput.addEventListener('change', e=>{
+    if(e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  ['dragenter','dragover'].forEach(ev=>{
+    dropzone.addEventListener(ev, e=>{
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add('drag-over');
+    });
+  });
+  ['dragleave','drop'].forEach(ev=>{
+    dropzone.addEventListener(ev, e=>{
+      e.preventDefault(); e.stopPropagation();
+      if(ev==='dragleave') dropzone.classList.remove('drag-over');
+    });
+  });
+  dropzone.addEventListener('drop', e=>{
+    dropzone.classList.remove('drag-over');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) loadFile(f);
+  });
+}
+
+function loadFile(file){
+  const okTypes = ['video/mp4','video/webm','video/quicktime'];
+  const okExt = /\.(mp4|webm|mov)$/i.test(file.name);
+  if(!okTypes.includes(file.type) && !okExt){
+    showToast('Unsupported format — please use MP4, WebM, or MOV.', true);
+    return;
+  }
+  state.file = file;
+  const url = URL.createObjectURL(file);
+  video.src = url;
+  video.load();
+
+  chipName.textContent = file.name.length>28 ? file.name.slice(0,25)+'…' : file.name;
+  chipSize.textContent = fmtBytes(file.size);
+  fileChip.classList.remove('hidden');
+
+  video.addEventListener('loadedmetadata', onVideoReady, {once:true});
+}
+
+function onVideoReady(){
+  previewShell.classList.remove('no-video');
+  state.duration = video.duration;
+  state.startTime = 0;
+  state.endTime = state.duration;
+  state.nativeAspect = video.videoWidth / video.videoHeight || (16/9);
+
+  chipDuration.textContent = fmtTime(state.duration);
+  totalTimeEl.textContent = fmtTime(state.duration);
+
+  // default output size, capped at 480 wide
+  let w = Math.min(480, video.videoWidth || 480);
+  let h = Math.round(w / state.nativeAspect);
+  state.outWidth = w; state.outHeight = h;
+  widthInput.value = w; heightInput.value = h;
+
+  startSlider.max = state.duration; startSlider.step = (state.duration/1000)||0.01;
+  endSlider.max = state.duration; endSlider.step = (state.duration/1000)||0.01;
+  startSlider.value = 0; endSlider.value = state.duration;
+
+  state.gifDuration = state.duration;
+  state.gifDurManuallySet = false;
+  gifDurInput.value = state.gifDuration.toFixed(2);
+
+  exportBtn.disabled = false;
+  timelineEmpty.classList.add('hidden');
+
+  updateTrimUI();
+  updateEstimate();
+  generateThumbnails();
+}
+
+let thumbVideo = null;
+
+function generateThumbnails(){
+  thumbStrip.innerHTML = '';
+  if(!thumbVideo){
+    thumbVideo = document.createElement('video');
+    thumbVideo.muted = true; thumbVideo.playsInline = true;
+  }
+  thumbVideo.src = video.src;
+
+  const COUNT = 40;
+  const cv = document.createElement('canvas');
+  const cw = 90, ch = 56;
+  cv.width = cw; cv.height = ch;
+  const ctx = cv.getContext('2d');
+
+  thumbVideo.addEventListener('loadedmetadata', async function onMeta(){
+    thumbVideo.removeEventListener('loadedmetadata', onMeta);
+    for(let i=0;i<COUNT;i++){
+      const t = (i/(COUNT-1)) * Math.max(state.duration-0.05,0.01);
+      await seekTo(thumbVideo, t);
+      const vw = thumbVideo.videoWidth, vh = thumbVideo.videoHeight;
+
+      const scale = Math.max(cw/vw, ch/vh);
+      const sw = cw/scale, sh = ch/scale;
+      const sx = (vw-sw)/2, sy = (vh-sh)/2;
+      ctx.clearRect(0,0,cw,ch);
+      ctx.drawImage(thumbVideo, sx, sy, sw, sh, 0,0,cw,ch);
+      const img = document.createElement('img');
+      img.src = cv.toDataURL('image/jpeg',0.6);
+      img.draggable = false;
+      thumbStrip.appendChild(img);
+    }
+  }, {once:true});
+}
+
+function seekTo(vid, t){
+  return new Promise(resolve=>{
+    function onSeeked(){ vid.removeEventListener('seeked', onSeeked); resolve(); }
+    vid.addEventListener('seeked', onSeeked);
+    try{ vid.currentTime = t; }catch(e){ resolve(); }
+  });
+}
+
+zoomRange.addEventListener('input', ()=>{
+  const z = parseFloat(zoomRange.value);
+  timelineTrack.style.width = (z*100)+'%';
+});
+
+
+let scrubbing = false;
+function trackXToTime(clientX){
+  const rect = timelineTrack.getBoundingClientRect();
+  const pct = clamp((clientX-rect.left)/rect.width, 0, 1);
+  return pct * state.duration;
+}
+timelineTrack.addEventListener('mousedown', e=>{
+  if(e.target===handleStart||e.target===handleEnd) return;
+  scrubbing = true;
+  video.currentTime = trackXToTime(e.clientX);
+});
+window.addEventListener('mousemove', e=>{
+  if(scrubbing) video.currentTime = trackXToTime(e.clientX);
+});
+window.addEventListener('mouseup', ()=>{ scrubbing=false; });
+
+video.addEventListener('timeupdate', ()=>{
+  curTimeEl.textContent = fmtTime(video.currentTime);
+  const pct = state.duration ? (video.currentTime/state.duration)*100 : 0;
+  playhead.style.left = pct+'%';
+  if(state.loop && video.currentTime >= state.endTime - 0.02){
+    video.currentTime = state.startTime;
+  }
+});
+video.addEventListener('play', ()=>{ playIcon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'; });
+video.addEventListener('pause', ()=>{ playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>'; });
+
+playBtn.addEventListener('click', ()=>{
+  if(!state.file) return;
+  if(video.paused){
+    if(video.currentTime < state.startTime || video.currentTime >= state.endTime) video.currentTime = state.startTime;
+    video.play();
+  } else video.pause();
+});
+loopToggle.addEventListener('change', ()=>{ state.loop = loopToggle.checked; });
+
+
+function updateTrimUI(){
+  const d = state.duration || 1;
+  const sPct = (state.startTime/d)*100;
+  const ePct = (state.endTime/d)*100;
+
+  shadeLeft.style.width = sPct+'%';
+  shadeRight.style.width = (100-ePct)+'%';
+  trimRangeEl.style.left = sPct+'%';
+  trimRangeEl.style.width = (ePct-sPct)+'%';
+  handleStart.style.left = sPct+'%';
+  handleEnd.style.left = ePct+'%';
+
+  trimStartLbl.textContent = fmtTime(state.startTime);
+  trimEndLbl.textContent = fmtTime(state.endTime);
+  trimDurLbl.textContent = (state.endTime-state.startTime).toFixed(2)+'s';
+
+  startVal.textContent = state.startTime.toFixed(2)+'s';
+  endVal.textContent = state.endTime.toFixed(2)+'s';
+  startSlider.value = state.startTime;
+  endSlider.value = state.endTime;
+
+  if(!state.gifDurManuallySet){
+    state.gifDuration = state.endTime-state.startTime;
+    gifDurInput.value = state.gifDuration.toFixed(2);
+  }
+  updateEstimate();
+}
+
+function setStart(t){
+  t = clamp(t, 0, state.endTime-0.05);
+  state.startTime = t;
+  updateTrimUI();
+}
+function setEnd(t){
+  t = clamp(t, state.startTime+0.05, state.duration);
+  state.endTime = t;
+  updateTrimUI();
+}
+
+startSlider.addEventListener('input', ()=>setStart(parseFloat(startSlider.value)));
+endSlider.addEventListener('input', ()=>setEnd(parseFloat(endSlider.value)));
+
+function dragHandle(handleEl, isStart){
+  handleEl.addEventListener('mousedown', e=>{
+    e.stopPropagation();
+    handleEl.classList.add('dragging');
+    function onMove(ev){
+      const t = trackXToTime(ev.clientX);
+      if(isStart) setStart(t); else setEnd(t);
+    }
+    function onUp(){
+      handleEl.classList.remove('dragging');
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
+}
+dragHandle(handleStart, true);
+dragHandle(handleEnd, false);
+
+fpsSlider.addEventListener('input', ()=>{
+  state.fps = parseInt(fpsSlider.value,10);
+  fpsVal.textContent = state.fps;
+  updateEstimate();
+});
+
+widthInput.addEventListener('input', ()=>{
+  let w = clamp(parseInt(widthInput.value||0,10)||1,16,1280);
+  state.outWidth = w;
+  if(lockAspect.checked){
+    state.outHeight = Math.round(w/state.nativeAspect);
+    heightInput.value = state.outHeight;
+  }
+  updateEstimate();
+});
+heightInput.addEventListener('input', ()=>{
+  let h = clamp(parseInt(heightInput.value||0,10)||1,16,1280);
+  state.outHeight = h;
+  if(lockAspect.checked){
+    state.outWidth = Math.round(h*state.nativeAspect);
+    widthInput.value = state.outWidth;
+  }
+  updateEstimate();
+});
+
+qualityToggle.addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  [...qualityToggle.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.quality = parseInt(btn.dataset.q,10);
+  updateEstimate();
+});
+
+gifDurInput.addEventListener('input', ()=>{
+  let v = parseFloat(gifDurInput.value);
+  if(!v || v<=0) return;
+  state.gifDurManuallySet = true;
+  state.gifDuration = v;
+
+  const trimDur = state.endTime-state.startTime;
+  const eff = trimDur / v;
+  state.speed = eff;
+  [...speedToggle.children].forEach(b=>b.classList.remove('active'));
+  updateEstimate();
+});
+
+speedToggle.addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  [...speedToggle.children].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.speed = parseFloat(btn.dataset.s);
+  state.gifDurManuallySet = false;
+  const trimDur = state.endTime-state.startTime;
+  state.gifDuration = trimDur/state.speed;
+  gifDurInput.value = state.gifDuration.toFixed(2);
+  updateEstimate();
+});
+
+function updateEstimate(){
+  const frames = Math.max(1, Math.round(state.gifDuration * state.fps));
+  const bytesPerFrame = state.outWidth*state.outHeight*(state.quality<=3?0.55:state.quality<=12?0.32:0.18);
+  const estBytes = frames*bytesPerFrame;
+  estOut.textContent = fmtBytes(estBytes)+' · '+frames+' frames';
+}
+
+function buildFilterString(){
+  const f = state.filters;
+  return `brightness(${f.brightness}%) contrast(${f.contrast}%) saturate(${f.saturate}%) hue-rotate(${f['hue-rotate']}deg) blur(${f.blur}px) grayscale(${f.grayscale}%) sepia(${f.sepia}%) invert(${f.invert}%)`;
+}
+function applyFilterToPreview(){
+  video.style.filter = buildFilterString();
+}
+document.querySelectorAll('.fx-slider').forEach(slider=>{
+  slider.addEventListener('input', ()=>{
+    const key = slider.id.replace('fx-','');
+    state.filters[key] = parseFloat(slider.value);
+    const unit = key==='hue-rotate' ? '°' : (key==='blur' ? 'px' : '%');
+    $('fx-'+key+'-val').textContent = slider.value+unit;
+    applyFilterToPreview();
+  });
+});
+$('resetFiltersBtn').addEventListener('click', ()=>{
+  state.filters = {brightness:100,contrast:100,saturate:100,'hue-rotate':0,blur:0,grayscale:0,sepia:0,invert:0};
+  document.querySelectorAll('.fx-slider').forEach(slider=>{
+    const key = slider.id.replace('fx-','');
+    slider.value = state.filters[key];
+    const unit = key==='hue-rotate' ? '°' : (key==='blur' ? 'px' : '%');
+    $('fx-'+key+'-val').textContent = slider.value+unit;
+  });
+  applyFilterToPreview();
+});
+
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    $('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+
+const PALETTE = ['#ffffff','#ffc857','#5eead4','#ff6b6b','#c084fc','#0e0f13'];
+
+function createLayer(){
+  state.layerCounter++;
+  const layer = {
+    id:'layer_'+state.layerCounter,
+    text:'Edit me',
+    xPct:30, yPct:40, // top-left as % of preview box
+    wPct:40, // width as % of preview box
+    rotation:0,
+    fontFamily:"Impact, 'Arial Narrow Bold', sans-serif",
+    fontSize:32,
+    bold:true,
+    color:'#ffffff',
+  };
+  state.textLayers.push(layer);
+  renderLayerDom(layer);
+  renderLayerList();
+  selectLayer(layer.id);
+}
+
+function renderLayerDom(layer){
+  const el = document.createElement('div');
+  el.className='text-layer';
+  el.id = 'dom_'+layer.id;
+  el.dataset.id = layer.id;
+  textLayerContainer.classList.add('active-layers');
+  textLayerContainer.appendChild(el);
+  updateLayerDom(layer);
+
+  el.addEventListener('mousedown', e=>{
+    if(e.target.classList.contains('handle')) return;
+    e.stopPropagation();
+    selectLayer(layer.id);
+    const wrapRect = previewWrap.getBoundingClientRect();
+    const startX=e.clientX, startY=e.clientY;
+    const origX=layer.xPct, origY=layer.yPct;
+    function onMove(ev){
+      const dxPct = ((ev.clientX-startX)/wrapRect.width)*100;
+      const dyPct = ((ev.clientY-startY)/wrapRect.height)*100;
+      layer.xPct = clamp(origX+dxPct, -10, 95);
+      layer.yPct = clamp(origY+dyPct, -10, 95);
+      updateLayerDom(layer);
+    }
+    function onUp(){ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); }
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+  });
+
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className='handle resize';
+  el.appendChild(resizeHandle);
+  resizeHandle.addEventListener('mousedown', e=>{
+    e.stopPropagation();
+    const wrapRect = previewWrap.getBoundingClientRect();
+    const startX=e.clientX;
+    const origW = layer.wPct;
+    function onMove(ev){
+      const dxPct = ((ev.clientX-startX)/wrapRect.width)*100;
+      layer.wPct = clamp(origW+dxPct, 6, 150);
+      updateLayerDom(layer);
+    }
+    function onUp(){ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); }
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+  });
+
+  const rotateHandle = document.createElement('div');
+  rotateHandle.className='handle rotate';
+  el.appendChild(rotateHandle);
+  rotateHandle.addEventListener('mousedown', e=>{
+    e.stopPropagation();
+    function onMove(ev){
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+      const angle = Math.atan2(ev.clientY-cy, ev.clientX-cx)*180/Math.PI + 90;
+      layer.rotation = Math.round(angle);
+      updateLayerDom(layer);
+    }
+    function onUp(){ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); }
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+  });
+}
+
+function updateLayerDom(layer){
+  const el = $('dom_'+layer.id);
+  if(!el) return;
+  el.style.left = layer.xPct+'%';
+  el.style.top = layer.yPct+'%';
+  el.style.width = layer.wPct+'%';
+  el.style.transform = `rotate(${layer.rotation}deg)`;
+  el.style.fontFamily = layer.fontFamily;
+  el.style.fontSize = layer.fontSize+'px';
+  el.style.fontWeight = layer.bold ? '700':'400';
+  el.style.color = layer.color;
+  el.firstChild ? (el.childNodes[0].nodeValue = layer.text) : null;
+  // keep text as first text node, handles appended after — rebuild safely:
+  let textNode = [...el.childNodes].find(n=>n.nodeType===3);
+  if(!textNode){ textNode = document.createTextNode(layer.text); el.insertBefore(textNode, el.firstChild); }
+  else textNode.nodeValue = layer.text;
+}
+
+function selectLayer(id){
+  state.selectedLayerId = id;
+  document.querySelectorAll('.text-layer').forEach(el=>el.classList.toggle('selected', el.dataset.id===id));
+  renderLayerList();
+  const layer = state.textLayers.find(l=>l.id===id);
+  if(!layer){ textEditFields.classList.add('hidden'); return; }
+  textEditFields.classList.remove('hidden');
+  textContentInput.value = layer.text;
+  fontFamilySelect.value = layer.fontFamily;
+  fontSizeSlider.value = layer.fontSize;
+  fontSizeVal.textContent = layer.fontSize+'px';
+  boldToggle.classList.toggle('active', layer.bold);
+  renderColorSwatches(layer);
+}
+
+function renderColorSwatches(layer){
+  colorSwatches.innerHTML='';
+  PALETTE.forEach(c=>{
+    const d = document.createElement('div');
+    d.className='color-dot'+(layer.color===c?' selected':'');
+    d.style.background=c;
+    d.style.boxShadow = c==='#ffffff' || c==='#0e0f13' ? 'inset 0 0 0 1px #3a3d47':'none';
+    d.addEventListener('click', ()=>{ layer.color=c; updateLayerDom(layer); renderColorSwatches(layer); });
+    colorSwatches.appendChild(d);
+  });
+}
+
+function renderLayerList(){
+  layerList.innerHTML='';
+  layerEmptyHint.classList.toggle('hidden', state.textLayers.length>0);
+  state.textLayers.forEach(layer=>{
+    const row = document.createElement('div');
+    row.className='layer-row'+(layer.id===state.selectedLayerId?' selected':'');
+    row.innerHTML = `<div class="swatch" style="background:${layer.color}"></div><div class="lbl">${escapeHtml(layer.text)||'(empty)'}</div>`;
+    row.addEventListener('click', ()=>selectLayer(layer.id));
+
+    const dupBtn = document.createElement('button');
+    dupBtn.className='mini-btn'; dupBtn.title='Duplicate';
+    dupBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="4" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>';
+    dupBtn.addEventListener('click', e=>{ e.stopPropagation(); duplicateLayer(layer.id); });
+
+    const delBtn = document.createElement('button');
+    delBtn.className='mini-btn'; delBtn.title='Delete';
+    delBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-8 0l1 12a1 1 0 001 1h6a1 1 0 001-1l1-12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    delBtn.addEventListener('click', e=>{ e.stopPropagation(); deleteLayer(layer.id); });
+
+    row.appendChild(dupBtn); row.appendChild(delBtn);
+    layerList.appendChild(row);
+  });
+}
+
+function duplicateLayer(id){
+  const src = state.textLayers.find(l=>l.id===id);
+  if(!src) return;
+  state.layerCounter++;
+  const copy = Object.assign({}, src, {id:'layer_'+state.layerCounter, xPct:src.xPct+4, yPct:src.yPct+4});
+  state.textLayers.push(copy);
+  renderLayerDom(copy);
+  renderLayerList();
+  selectLayer(copy.id);
+}
+function deleteLayer(id){
+  state.textLayers = state.textLayers.filter(l=>l.id!==id);
+  const el = $('dom_'+id); if(el) el.remove();
+  if(state.selectedLayerId===id) state.selectedLayerId=null;
+  renderLayerList();
+  textEditFields.classList.add('hidden');
+}
+
+addTextBtn.addEventListener('click', createLayer);
+textContentInput.addEventListener('input', ()=>{
+  const l = state.textLayers.find(l=>l.id===state.selectedLayerId); if(!l) return;
+  l.text = textContentInput.value; updateLayerDom(l); renderLayerList();
+});
+fontFamilySelect.addEventListener('change', ()=>{
+  const l = state.textLayers.find(l=>l.id===state.selectedLayerId); if(!l) return;
+  l.fontFamily = fontFamilySelect.value; updateLayerDom(l);
+});
+fontSizeSlider.addEventListener('input', ()=>{
+  const l = state.textLayers.find(l=>l.id===state.selectedLayerId); if(!l) return;
+  l.fontSize = parseInt(fontSizeSlider.value,10); fontSizeVal.textContent=l.fontSize+'px'; updateLayerDom(l);
+});
+boldToggle.addEventListener('click', ()=>{
+  const l = state.textLayers.find(l=>l.id===state.selectedLayerId); if(!l) return;
+  l.bold = !l.bold; boldToggle.classList.toggle('active', l.bold); updateLayerDom(l);
+});
+
+previewWrap.addEventListener('mousedown', e=>{
+  if(e.target===previewWrap || e.target===video){
+    state.selectedLayerId=null;
+    document.querySelectorAll('.text-layer').forEach(el=>el.classList.remove('selected'));
+    renderLayerList();
+    textEditFields.classList.add('hidden');
+  }
+});
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+
+function setControlsDisabled(disabled){
+  document.querySelectorAll('.workspace input, .workspace select, .workspace button, .workspace textarea').forEach(el=>{
+    el.disabled = disabled;
+  });
+  exportBtn.disabled = disabled || !state.file;
+  document.body.classList.toggle('rendering', disabled);
+}
+
+exportBtn.addEventListener('click', startExport);
+
+
+let _workerBlobUrlPromise = null;
+function getWorkerScriptUrl(){
+  if(!_workerBlobUrlPromise){
+    _workerBlobUrlPromise = fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js')
+      .then(resp=>{
+        if(!resp.ok) throw new Error('worker fetch failed: '+resp.status);
+        return resp.blob();
+      })
+      .then(blob=>URL.createObjectURL(blob))
+      .catch(err=>{
+        _workerBlobUrlPromise = null; 
+        throw err;
+      });
+  }
+  return _workerBlobUrlPromise;
+}
+
+async function startExport(){
+  if(!state.file) return;
+  if(state.endTime-state.startTime < 0.05){ showToast('Trim range is too short.', true); return; }
+
+  setControlsDisabled(true);
+  exportVeil.classList.add('show');
+  progressFill.style.width='0%';
+  progressPct.textContent='0%';
+  exportSub.textContent = 'Warming up the encoder…';
+  progressStage.textContent = '';
+  video.pause();
+
+  let workerScriptUrl;
+  try{
+    workerScriptUrl = await getWorkerScriptUrl();
+  }catch(err){
+    console.error(err);
+    showToast('Could not load the GIF encoder — check your connection and try again.', true);
+    setControlsDisabled(false);
+    exportVeil.classList.remove('show');
+    return;
+  }
+
+  const w = state.outWidth, h = state.outHeight;
+  const totalFrames = Math.max(1, Math.round(state.gifDuration * state.fps));
+  const trimDur = state.endTime - state.startTime;
+
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d');
+
+  const gif = new GIF({
+    workers: 3,
+    quality: state.quality,
+    width: w, height: h,
+    workerScript: workerScriptUrl,
+    repeat: 0,
+  });
+
+  let encodingWatchdog = null;
+  function armWatchdog(){
+    clearTimeout(encodingWatchdog);
+    encodingWatchdog = setTimeout(()=>{
+      showToast('Encoding is taking unusually long — it may have stalled. Try a smaller size or shorter clip.', true);
+    }, 30000);
+  }
+  gif.on('abort', ()=>{
+    clearTimeout(encodingWatchdog);
+    showToast('GIF encoding was aborted.', true);
+    setControlsDisabled(false);
+    exportVeil.classList.remove('show');
+  });
+
+  exportSub.textContent = 'Capturing frames from the trimmed range…';
+
+  try{
+    for(let i=0;i<totalFrames;i++){
+      const srcT = state.startTime + (totalFrames<=1 ? 0 : (i/(totalFrames-1)))*trimDur;
+      await seekTo(video, clamp(srcT,0,state.duration));
+
+      ctx.save();
+      ctx.filter = buildFilterString();
+      // cover-fit draw
+      const vw=video.videoWidth, vh=video.videoHeight;
+      const scale = Math.max(w/vw, h/vh);
+      const sw=w/scale, sh=h/scale, sx=(vw-sw)/2, sy=(vh-sh)/2;
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+      ctx.restore();
+
+      drawTextLayers(ctx, w, h);
+
+      gif.addFrame(ctx, {copy:true, delay: Math.round(1000/state.fps)});
+
+      const pct = Math.round(((i+1)/totalFrames)*55);
+      progressFill.style.width = pct+'%';
+      progressPct.textContent = pct+'%';
+      progressStage.textContent = `capturing frame ${i+1} / ${totalFrames}`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }catch(err){
+    console.error(err);
+    showToast('Something went wrong while capturing frames.', true);
+    setControlsDisabled(false);
+    exportVeil.classList.remove('show');
+    return;
+  }
+
+  exportSub.textContent = 'Encoding GIF…';
+  gif.on('progress', p=>{
+    const pct = 55 + Math.round(p*45);
+    progressFill.style.width = pct+'%';
+    progressPct.textContent = pct+'%';
+    progressStage.textContent = 'encoding · '+Math.round(p*100)+'%';
+  });
+  gif.on('finished', blob=>{
+    clearTimeout(encodingWatchdog);
+    progressFill.style.width='100%';
+    progressPct.textContent='100%';
+    exportVeil.classList.remove('show');
+    setControlsDisabled(false);
+    showResult(blob, w, h, totalFrames);
+  });
+  gif.render();
+  armWatchdog();
+}
+
+
+function drawTextLayers(ctx, canvasW, canvasH){
+  const wrapRect = previewWrap.getBoundingClientRect();
+
+  const videoRect = video.getBoundingClientRect();
+  state.textLayers.forEach(layer=>{
+    const boxX = (layer.xPct/100) * videoRect.width;
+    const boxY = (layer.yPct/100) * videoRect.height;
+    const boxW = (layer.wPct/100) * videoRect.width;
+
+    const scaleX = canvasW / videoRect.width;
+    const scaleY = canvasH / videoRect.height;
+
+    const cx = (boxX + boxW/2) * scaleX;
+    const cy = boxY * scaleY;
+    const fontPx = layer.fontSize * scaleX;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(layer.rotation * Math.PI/180);
+    ctx.font = `${layer.bold?'700':'400'} ${fontPx}px ${layer.fontFamily}`;
+    ctx.fillStyle = layer.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0,0,0,.6)';
+    ctx.shadowBlur = 4*scaleX;
+    ctx.shadowOffsetY = 2*scaleY;
+
+    const lines = wrapText(ctx, layer.text, boxW*scaleX);
+    lines.forEach((line,idx)=>{
+      ctx.fillText(line, 0, idx*fontPx*1.15);
+    });
+    ctx.restore();
+  });
+}
+function wrapText(ctx, text, maxWidth){
+  const out=[];
+  text.split('\n').forEach(paragraph=>{
+    const words = paragraph.split(' ');
+    let line='';
+    words.forEach(word=>{
+      const test = line ? line+' '+word : word;
+      if(ctx.measureText(test).width > maxWidth && line){
+        out.push(line); line = word;
+      } else line = test;
+    });
+    out.push(line);
+  });
+  return out;
+}
+
+function showResult(blob, w, h, frames){
+  const url = URL.createObjectURL(blob);
+  resultImg.src = url;
+  resultSize.textContent = fmtBytes(blob.size);
+  resultDims.textContent = w+'×'+h;
+  resultFrames.textContent = frames+' frames';
+  resultDownloadBtn.href = url;
+  const safeName = (state.file.name||'meme').replace(/\.[^.]+$/,'') || 'meme';
+  resultDownloadBtn.download = safeName+'-loop.gif';
+  resultVeil.classList.add('show');
+}
+resultCloseBtn.addEventListener('click', ()=>{ resultVeil.classList.remove('show'); });
+
+
+initUpload();
+renderColorSwatches({color:'#ffffff'});
+})();
+</script>
+</body>
+</html>
